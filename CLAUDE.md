@@ -127,14 +127,14 @@
 | Configuration | `lib/Config.ts` (extension), `appsettings.json` (server) |
 | Item properties | `lib/ItemProperties.ts` |
 
-## Structured Documentation
+## Documentation
 
-- Located in `github-nine3q/Docs/Structured/`
-- All structured documentation must be written in **English**
-- **Before implementing or extending a feature**, check if structured documentation exists for it in that folder
-- If no structured documentation exists for the feature to be implemented, **do not start coding** - instead, point this out and collaborate with the user to create the documentation first (analyze the existing system together, then document it, then implement)
+- Located in `docs/` at project root
+- All documentation must be written in **English**
+- **Before implementing or extending a feature**, check if documentation exists for it in that folder
+- If no documentation exists for the feature to be implemented, **do not start coding** - instead, point this out and collaborate with the user to create the documentation first (analyze the existing system together, then document it, then implement)
 - This ensures a shared understanding of the current system before making changes
 
 ### Available Documentation
-- [Upload Avatar Process](github-nine3q/Docs/Structured/upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
+- [Upload Avatar Process](docs/upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
 
