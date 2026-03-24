@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(npm run build:*)",
+      "Bash(grep:*)",
+      "Bash(dotnet build:*)",
+      "Bash(wc:*)",
+      "Bash(dir:*)",
+      "WebFetch(domain:weblin.io)",
+      "Bash(dotnet test:*)"
+    ]
+  }
+}
