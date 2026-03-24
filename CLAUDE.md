@@ -131,9 +131,9 @@
 
 - Located in `docs/` at project root
 - All documentation must be written in **English**
-- **Before implementing or extending a feature**, check if documentation exists for it in that folder
-- If no documentation exists for the feature to be implemented, **do not start coding** - instead, point this out and collaborate with the user to create the documentation first (analyze the existing system together, then document it, then implement)
-- This ensures a shared understanding of the current system before making changes
+- **Before implementing or extending a feature**, check if the existing architecture of the affected parts is documented in this folder
+- If the architecture of the affected area is not yet documented, **do not start coding** - instead, point this out and collaborate with the user to first analyze and document the existing system, then implement the feature
+- The goal is to ensure a shared understanding of the current architecture before making changes to it
 
 ### Available Documentation
 - [Upload Avatar Process](docs/upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
