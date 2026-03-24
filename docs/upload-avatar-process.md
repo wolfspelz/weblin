@@ -1,10 +1,15 @@
-# Upload Avatar: End-to-End Process
+# Avatar Items: Upload Avatar & Custom Avatar
 
-Complete documentation of the avatar upload process - from an empty Upload Avatar item to a rendered animation on the web page.
+Documentation of the avatar upload system - both the original Upload Avatar (single animations) and the newer Custom Avatar (ZIP with config.xml). Covers the end-to-end process from item creation to rendered animation on the web page.
 
 ## Overview
 
-The Upload Avatar item allows users to upload custom animation files (GIF/WebP/PNG/JPEG) which are stored server-side and assembled into a config.xml that the client extension uses to render the animated avatar.
+There are two avatar item types that share a common base class:
+
+- **Upload Avatar** - Upload individual animation files one at a time. The server generates config.xml automatically. Supports one animation per type.
+- **Custom Avatar** - Upload a ZIP containing a pre-built config.xml and all animation files. Supports multiple animations per type with custom probabilities.
+
+Both items use the same client-side rendering pipeline (Avatar.ts, AnimationsXml.ts, Animation Proxy).
 
 ## Phase 1: Item Definition
 
@@ -60,13 +65,15 @@ The `UploadAvatar` template defines:
 - User must own the item
 
 ### Blob Storage
-**Method:** `StoreBlob()` (line ~504)
+**Method:** `StoreBlob()` in `AvatarItemFrameModel` (shared base class)
 
 1. SHA256 hash of file data
-2. Blob ID constructed: `uploadAvatar/{hash[0:2]}/{hash[2:4]}/{hash[4:6]}/{fullHash}.{ext}`
+2. Blob ID constructed: `{prefix}/{hash[0:2]}/{hash[2:4]}/{hash[4:6]}/{fullHash}.{ext}`
+   - Upload Avatar prefix: `uploadAvatar/`
+   - Custom Avatar prefix: `customAvatar/`
 3. `BlobGrain.Set()` stores data with metadata:
    ```
-   creationTime, mimeType, usageType=UploadAvatar, userId, sourceInfo
+   creationTime, mimeType, usageType (UploadAvatar or CustomAvatar), userId, sourceInfo
    ```
 4. Deduplication: if blob with same hash exists, skip storage
 5. Returns blob URL for the stored file
@@ -332,26 +339,199 @@ The Upload Avatar item currently only supports **one animation per type** - ther
    [12] Rendered avatar on web page
 ```
 
+## config.xml Parameter Reference
+
+The config.xml uses the namespace `http://schema.bluehands.de/character-config`.
+
+### `<param>` Elements
+
+| Name | Required | Description | Example |
+|------|----------|-------------|---------|
+| `name` | No | Avatar display name. Custom Avatar uses this as item label. | `Christine` |
+| `width` | Yes | Avatar width in pixels (clamped 50-200 for Upload Avatar) | `200` |
+| `height` | Yes | Avatar height in pixels (clamped 50-200 for Upload Avatar) | `200` |
+| `defaultsequence` | Yes | Animation group to play by default | `idle` |
+| `image` | No | Still image filename for preview (Custom Avatar only) | `still.png` |
+| `chatBubblesBottom` | No | Vertical offset for chat bubbles above avatar | `100` |
+| `chatinBottom` | No | Vertical offset for chat input above avatar | `35` |
+
+### `<sequence>` Attributes
+
+| Attribute | Required | Description |
+|-----------|----------|-------------|
+| `group` | Yes | Animation category (idle, moveleft, wave, etc.) |
+| `name` | Yes | Unique name within config (e.g., idle, idle_1, idle_2) |
+| `type` | Yes | `status` (continuous), `basic` (movement/chat), `emote` (one-time) |
+| `probability` | Yes | Weight for random selection within group (higher = more frequent) |
+| `in` | No | Entry transition state (`standard`, `moveleft`, `moveright`) |
+| `out` | No | Exit transition state |
+
+### `<animation>` Attributes (inside `<sequence>`)
+
+| Attribute | Required | Description |
+|-----------|----------|-------------|
+| `src` | Yes | URL or filename of animation file |
+| `duration` | No | Animation duration in milliseconds (client fallback: 1000ms) |
+| `dx` | No | Movement speed in pixels/second (negative = left) |
+| `dy` | No | Vertical movement (rarely used) |
+
+## Shared Server Architecture
+
+### Class Hierarchy
+
+```
+ItemFrameModel                    (base for all item frame pages)
+  └── AvatarItemFrameModel        (shared avatar functionality)
+        ├── UploadAvatarModel     (single animation upload)
+        └── CustomAvatarModel     (ZIP upload)
+```
+
+**File:** `Items/n3q.WebIt/AvatarItemFrameModel.cs`
+
+`AvatarItemFrameModel` provides shared methods:
+- `StoreBlob(blobPrefix, usageType, mimeType, urlSuffix, blobData, sourceInfo)` - SHA256-based blob storage with deduplication
+- `AddParamToXml(elem, name, value)` - XML param element helper
+- `MakeErrorResult(errorId, errorMsg)` - Error response formatting
+- `MakeExResult(ex)` - Exception response formatting with Orleans error detection
+- Static MIME type maps: `AnimationMimeTypeFileExtensions`, `ExtensionMimeTypes`
+
+### Blob UsageTypes
+
+| UsageType | Item | Blob ID Prefix |
+|-----------|------|----------------|
+| `UploadAvatar` | Upload Avatar | `uploadAvatar/` |
+| `CustomAvatar` | Custom Avatar | `customAvatar/` |
+
+## Custom Avatar Item
+
+### Overview
+
+The Custom Avatar item accepts a ZIP file containing a config.xml and all referenced animation files. Unlike Upload Avatar, it supports:
+- **Multiple animations per group** with different probabilities (e.g., 7 idle variants)
+- **Custom config.xml** with all parameters pre-configured
+- **Still image** via `<param name='image'>` for preview display
+- **Batch upload** - all files in one ZIP instead of uploading one at a time
+
+### Item Definition
+
+**File:** `Items/n3q.Items/Templates/Standard.cs`
+
+Same aspects as Upload Avatar: `AvatarAspect`, `ActivatableAspect`, `IframeAspect`. IframeUrl points to `ItemFrame/CustomAvatar`.
+
+### ZIP Structure
+
+```
+avatar.zip
+├── config.xml          (required - avatar configuration)
+├── still.png           (optional - referenced by <param name='image'>)
+├── idle.webp           (referenced by <sequence> src attributes)
+├── idle_1.webp
+├── idle_2.webp
+├── moveleft.webp
+├── moveright.webp
+├── wave.webp
+└── ...
+```
+
+### Example config.xml (Christine avatar)
+
+```xml
+<?xml version='1.0' encoding='UTF-8'?>
+<config xmlns='http://schema.bluehands.de/character-config' version='1.0'>
+    <param name='name' value='Christine'/>
+    <param name='width' value='200'/>
+    <param name='height' value='200'/>
+    <param name='defaultsequence' value='idle'/>
+    <param name='image' value='still.png'/>
+    <sequence group="idle" name="idle" type="emote" probability="1000" ...><animation src="idle.webp" duration="1000"/></sequence>
+    <sequence group="idle" name="idle_1" type="emote" probability="50" ...><animation src="idle_1.webp" duration="2002"/></sequence>
+    <sequence group="idle" name="idle_2" type="emote" probability="200" ...><animation src="idle_2.webp" duration="1735"/></sequence>
+    <!-- ... more idle variants with different probabilities ... -->
+    <sequence group="moveleft" name="moveleft" type="basic" ...><animation src="moveleft.webp" dx="-109" duration="1268"/></sequence>
+    <sequence group="moveright" name="moveright" type="basic" ...><animation src="moveright.webp" dx="104" duration="1268"/></sequence>
+    <sequence group="wave" name="wave" type="emote" ...><animation src="wave.webp" duration="3136"/></sequence>
+    <!-- ... more emotes ... -->
+</config>
+```
+
+### Server Processing (Two-Phase)
+
+**File:** `Items/n3q.WebIt/Pages/ItemFrame/CustomAvatar.cshtml.cs`
+
+#### Phase 1: ExtractAndValidate()
+Parses ZIP without side effects. Returns `ValidatedZipContent` or throws `ValidationException`:
+1. Find `config.xml` in ZIP
+2. Parse XML, extract all `<param>` elements
+3. If `<param name='image'>` references a file, read and validate it from ZIP
+4. For each `<sequence>`: find referenced animation file in ZIP, validate MIME type and size
+5. Return validated data structure with all file bytes loaded
+
+#### Phase 2: StoreAnimationsAndCreateXml()
+Only runs after successful validation:
+1. Store image blob (if present) → becomes `Pid.ImageUrl`
+2. Store each animation blob → get blob URLs
+3. Build new config.xml with blob URLs replacing relative filenames (all other attributes preserved)
+4. Store config.xml blob → becomes `Pid.AvatarAnimationsUrl`
+5. Set `Pid.Label` from `<param name='name'>` if present
+6. Update item via `InventoryGrain.ModifyProperties()`
+
+### Frontend UI
+
+**File:** `Items/n3q.WebIt/Pages/ItemFrame/CustomAvatar.cshtml`
+
+Layout:
+1. **Header**: Name (editable), Image preview (from `<param name='image'>`), Active checkbox
+2. **ZIP drop zone**: Drag-and-drop + click-to-upload
+3. **Animation table** (after upload): Group, Name, Probability, Duration, dx - with thumbnail preview per row and hover popup showing full animation
+
+### Configuration
+
+| Config Key | Default | Description |
+|------------|---------|-------------|
+| `MaxCustomAvatarZipSize` | 10 MB | Maximum ZIP file size |
+| `MaxCustomAvatarAnimationSize` | 600 KB | Maximum individual animation file size |
+
+### Comparison: Upload Avatar vs Custom Avatar
+
+| Feature | Upload Avatar | Custom Avatar |
+|---------|--------------|---------------|
+| Upload method | One animation at a time | ZIP with all files |
+| config.xml | Auto-generated | User-provided in ZIP |
+| Animations per type | 1 | Unlimited (with probabilities) |
+| Probability control | Not applicable (always 1000) | User-defined in config.xml |
+| Width/Height | Editable in UI (50-200px) | From config.xml params |
+| Movement speed | Editable in UI | From `dx` in config.xml |
+| Still image | Not supported | Via `<param name='image'>` |
+| Avatar name | Editable label | From `<param name='name'>` |
+
 ## Key Files Reference
 
 | Component | File |
 |-----------|------|
-| Item template definition | `Items/n3q.Items/Templates/Standard.cs:767` |
-| Upload UI backend | `Items/n3q.WebIt/Pages/ItemFrame/UploadAvatar.cshtml.cs` |
-| Upload UI frontend | `Items/n3q.WebIt/Pages/ItemFrame/UploadAvatar.cshtml` |
+| **Shared** | |
+| Avatar base model | `Items/n3q.WebIt/AvatarItemFrameModel.cs` |
+| ItemFrame base (server) | `Items/n3q.WebIt/ItemFrameModel.cs` |
+| Item template definitions | `Items/n3q.Items/Templates/Standard.cs` |
+| Template registry | `Items/n3q.Items/TemplateRegistry.cs` |
 | Blob storage grain | `Items/n3q.Grains/BlobGrain.cs` |
 | Blob grain interface | `Items/n3q.GrainInterfaces/IBlob.cs` |
 | Blob proxy controller | `Items/n3q.WebIt/Controllers/BlobProxyController.cs` |
 | Animation proxy | `Base/n3q.WebEx/Controllers/AvatarController.cs` |
 | WebEx config | `App/n3q.AppInterfaces/WebExConfigDefinition.cs` |
 | WebIt config | `App/n3q.AppInterfaces/WebItConfigDefinition.cs` |
-| ItemFrame context (client) | `github-n3qExt/.../lib/ItemFrameContextFactory.ts` |
-| ItemFrame base (server) | `Items/n3q.WebIt/ItemFrameModel.cs` |
-| XML parser (client) | `github-n3qExt/.../contentscript/AnimationsXml.ts` |
-| Avatar rendering (client) | `github-n3qExt/.../contentscript/Avatar.ts` |
-| Entity movement (client) | `github-n3qExt/.../contentscript/Entity.ts` |
+| **Upload Avatar** | |
+| Upload UI backend | `Items/n3q.WebIt/Pages/ItemFrame/UploadAvatar.cshtml.cs` |
+| Upload UI frontend | `Items/n3q.WebIt/Pages/ItemFrame/UploadAvatar.cshtml` |
+| **Custom Avatar** | |
+| Custom UI backend | `Items/n3q.WebIt/Pages/ItemFrame/CustomAvatar.cshtml.cs` |
+| Custom UI frontend | `Items/n3q.WebIt/Pages/ItemFrame/CustomAvatar.cshtml` |
+| **Client (shared by both)** | |
+| ItemFrame context | `github-n3qExt/.../lib/ItemFrameContextFactory.ts` |
+| XML parser | `github-n3qExt/.../contentscript/AnimationsXml.ts` |
+| Avatar rendering | `github-n3qExt/.../contentscript/Avatar.ts` |
+| Entity movement | `github-n3qExt/.../contentscript/Entity.ts` |
 | Participant integration | `github-n3qExt/.../contentscript/Participant.ts` |
 | Avatar gallery | `github-n3qExt/.../lib/AvatarGallery.ts` |
 | iframe API protocol | `github-n3qExt/.../lib/WeblinClientIframeApi.ts` |
-| Config (client) | `github-n3qExt/.../lib/Config.ts` (lines ~256-329) |
+| Config | `github-n3qExt/.../lib/Config.ts` (lines ~256-329) |
 | User avatar grain | `Items/n3q.Grains/SetUserAvatarGrain.cs` |
