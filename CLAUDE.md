@@ -137,4 +137,5 @@
 
 ### Available Documentation
 - [Upload Avatar Process](docs/upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
+- [Vidconf Architecture](docs/vidconf-architecture.md) - Jitsi integration, public/private vidconf flows, URL config chain, window sizes
 
