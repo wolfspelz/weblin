@@ -4,8 +4,12 @@ How the browser-extension client (`github-n3qExt`) renders inventory items insid
 the Backpack window: how each tile is built and updated from item properties, how
 visual state is composed from independent layers, how the "quasi-tab" filter groups
 work, how subset windows (e.g. the Contacts list) reuse the same machinery with a
-single forced filter, how theme items inject overlay CSS, and how every server-side
-property change propagates back to the client over the WebSocket.
+single forced filter, and how every server-side property change propagates back to the
+client over the WebSocket.
+
+Tiles are painted from the GUI-wide CSS design-token layer, and theme items are ordinary
+backpack items — both are covered here only as they touch the backpack (§8); the full
+styling and theming machinery lives in [GUI Styling and Themes](gui-styling-and-themes.md).
 
 All paths are relative to `github-n3qExt/ChromeExt/src/`.
 
@@ -373,40 +377,47 @@ or a purely server-side event.
 
 ---
 
-## 8. Theme items inject overlay CSS
+## 8. Styling and themes
 
-"Theme" is a distinct mechanism from the per-tile overlay **badges** of §2 (those are
-`<img>` elements built by `ItemOverlays` from `Pid.ItemOverlayDefinitions` /
-`Pid.ItemOverlayIds`). A **theme item** is an inventory item that injects page-wide CSS.
+> The full styling/theming machinery is GUI-wide and lives in its own reference,
+> [GUI Styling and Themes](gui-styling-and-themes.md) — shadow-DOM isolation, the CSS
+> design-token (custom-property) layer, the window/widget framework, and the theme system.
+> This section only notes how the backpack plugs into it.
 
-A theme item carries:
+### 8.1 Tiles are painted from shared design tokens
 
-- `Pid.ThemeAspect` (boolean) — marks the item as a theme.
-- `Pid.ThemeCss` (string) — the CSS text to inject.
-- its activation flag (`ActivatableIsActive`) — whether the theme is currently enabled.
+Backpack tiles use **no hard-coded colours, spacings or shadows**. Every visual constant is
+read from a CSS custom property (`var(--…)`) defined in the shared token block on `#n3qD`
+(`contentscript.css`), so a tile is automatically consistent with panes, buttons and other
+windows — and re-skins for free when a theme overrides those tokens. Which tokens the
+backpack rules consume:
 
-`ItemProperties.getThemeData()` (`lib/ItemProperties.ts`) extracts
-`{id, name, isEnabled, css, x, y}` from any item with `ThemeAspect`. The flow rides the
-same backpack-update pipeline as §6:
+| Backpack rule | Token(s) used |
+|---------------|---------------|
+| `.backpack-item` box shadow / fill | `--hard-shadow-color`, `--base-background-color` |
+| `.backpack-item-label` background | `--tiny-pane-background` |
+| `.backpack-item.selected` / marquee-add | `--selected-color` (derived shadow + fill) |
+| `.backpack-item.dragging` | `--fadeout-opacity` |
+| `.backpack-item-online-status[...]` | `--online-led-{unknown,offline,online}-{color,background,filter}` |
+| `.backpack-pane.drop-target(.highlight)` | `--drop-target-background-color`, `--drop-target-highlight-background-color` |
 
-1. `BackgroundThemeManager.onBackpackUpdate()` (background) listens to backpack updates,
-   maps every theme item through `getThemeData()`, and registers the result as the `item`
-   theme source.
-2. It broadcasts the aggregated themes to all tabs via `ContentMessage.type_themes`
-   (`ContentThemesMessage`).
-3. `ContentThemeManager` (`contentscript/ContentThemeManager.ts`) receives them, keeps the
-   **enabled** ones, concatenates their `css` strings, and injects a single
-   `<style data-type="theme">…</style>` element into the content app's **shadow DOM root**
-   (`updateDisplay()`). The element is removed and rebuilt whenever themes change, so
-   enabling/disabling or editing a theme item updates the page CSS live.
-4. `ContentItemFrames` also forwards the aggregated CSS into item iframes via a
-   `ClientThemeCssNotification` so embedded item UIs can match the theme.
+See [GUI Styling and Themes §3](gui-styling-and-themes.md) for the token taxonomy and how
+`--brightness-factor` drives light/dark behaviour.
 
-Because theme state lives in ordinary item properties (`ThemeAspect`, `ThemeCss`, the
-active flag), turning a theme on/off or editing its CSS server-side propagates exactly like
-any other property change (§6): the WebSocket update reaches the background theme manager,
-which re-aggregates and re-broadcasts, and the content theme manager rewrites its single
-`<style>` element.
+### 8.2 Theme items are backpack items
+
+A **theme item** is an ordinary inventory item carrying `Pid.ThemeAspect` (marks it a
+theme), `Pid.ThemeCss` (the CSS text, typically token overrides) and the activation flag
+`Pid.ActivatableIsActive`. This is distinct from the per-tile overlay **badges** of §2.
+
+The point relevant here: because a theme item is just a backpack item,
+**enabling/disabling or editing it propagates through the exact same update pipeline as any
+other item-property change** (§6–§7). `BackgroundThemeManager.onBackpackUpdate()` listens to
+backpack updates, extracts each theme item via `ItemProperties.getThemeData()`, and feeds
+the `item`-source themes into the theme system; `ContentThemeManager` then rewrites a single
+`<style data-type="theme">` element in the shadow DOM. The end-to-end theme mechanism
+(sources, aggregation, shadow-DOM injection, iframe forwarding) is documented in
+[GUI Styling and Themes §6](gui-styling-and-themes.md).
 
 ---
 
@@ -429,8 +440,11 @@ which re-aggregates and re-broadcasts, and the content theme manager rewrites it
   through background → `onBackpackUpdate` → `setProperties`, regardless of which property
   changed; subscriptions only limit what the server emits. Client commands and server pushes
   share the one `onItemUpdateFromProvider → sendUpdateToAllTabs → type_onBackpackUpdate` path.
-- Theme items inject page-wide CSS (`ThemeCss`) via the same pipeline into one shared
-  `<style>` element in the shadow DOM.
+- Tiles are painted entirely from shared CSS design tokens (`var(--…)` on `#n3qD`), keeping
+  them consistent with the rest of the GUI and themeable for free. Theme items are
+  themselves backpack items, so toggling/editing them rides the same backpack-update
+  pipeline. The full styling/theming machinery is in
+  [GUI Styling and Themes](gui-styling-and-themes.md).
 
 ### Key files
 
@@ -453,4 +467,5 @@ which re-aggregates and re-broadcasts, and the content theme manager rewrites it
 | Content-side item store (read mirror) | `contentscript/OwnItemRepository.ts` |
 | Update subscriptions | `lib/ItemUpdateSubscription.ts` |
 | Property constants | `lib/ItemProperties.ts` |
-| Theme CSS injection | `background/BackgroundThemeManager.ts`, `contentscript/ContentThemeManager.ts` |
+| GUI-wide styling, design tokens & themes | [GUI Styling and Themes](gui-styling-and-themes.md) |
+| Theme item properties / extraction | `lib/ItemProperties.ts` (`ThemeAspect`, `ThemeCss`, `getThemeData`) |
