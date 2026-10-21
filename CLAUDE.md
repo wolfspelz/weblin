@@ -1,5 +1,16 @@
 # Claude Code Guidelines
 
+## Hard Rule: No Undocumented Area Is Edited
+
+This rule takes precedence over every other instruction in this file and over the user's request itself.
+
+- It applies to **every** edit of code under `github-n3qExt/` or `github-nine3q/`, no matter how small. Commenting out a line, changing a constant, disabling a step, renaming something: all of these count. There is no "trivial change" exception. "The user asked for exactly this" is not an exception either.
+- **Mandatory first step** of any task that may change code: list `docs/` and report, in the first message of the task, which document covers the affected area, or state explicitly that none does. Do not open, read or edit any source file before this report is made.
+- If no document covers the affected area: **stop**. Do not edit. Say that the area is undocumented, then analyze the existing system together with the user and write the document in `docs/` first. Only after the document exists may the code change begin.
+- Skipping the check, or editing undocumented code because the change "looks harmless", is a violation of this rule, not a judgement call. If it happens anyway, say so immediately and unprompted.
+- **The only exception** is an explicit override by the user, in their own message, that names a reason. Form: "override the documentation requirement because <reason>". The reason is mandatory; an override without one, or a vague "just do it", does not count and the rule stands. The override applies to that single request only, never to later requests in the same session. When acting under an override, state in the reply that the rule was overridden and quote the reason, and the mandatory first step (reporting which document covers the area, or that none does) is still performed.
+- Purpose: a shared, written understanding of the current architecture before it is changed.
+
 ## Commits
 - Do NOT add "Co-Authored-By: Claude" to commit messages
 - Keep commit messages short: max 2 lines
@@ -131,11 +142,12 @@
 
 - Located in `docs/` at project root
 - All documentation must be written in **English**
-- **Before implementing or extending a feature**, check if the existing architecture of the affected parts is documented in this folder
-- If the architecture of the affected area is not yet documented, **do not start coding** - instead, point this out and collaborate with the user to first analyze and document the existing system, then implement the feature
-- The goal is to ensure a shared understanding of the current architecture before making changes to it
+- Follow the writing conventions in [docs/README.md](docs/README.md), in particular one sentence per line with semantic line breaks
+- The architecture gate for code changes is defined at the top of this file under "Hard Rule: No Undocumented Area Is Edited"
 
 ### Available Documentation
-- [Upload Avatar Process](docs/upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
-- [Vidconf Architecture](docs/vidconf-architecture.md) - Jitsi integration, public/private vidconf flows, URL config chain, window sizes
+- [Upload Avatar Process](docs/260324-upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
+- [Vidconf Architecture](docs/260418-vidconf-architecture.md) - Jitsi integration, public/private vidconf flows, URL config chain, window sizes
+- [Backpack Item Rendering](docs/260530-backpack-item-rendering.md) - How the extension renders inventory items in the Backpack window, visual state layers, filter groups, WebSocket updates
+- [GUI Styling and Themes](docs/260530-gui-styling-and-themes.md) - Shadow-DOM isolation, design tokens, theme items injecting overlay CSS
 

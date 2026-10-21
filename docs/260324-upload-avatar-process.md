@@ -1,15 +1,14 @@
 # Avatar Items: Upload Avatar & Custom Avatar
 
-Documentation of the avatar upload system - both the original Upload Avatar (single animations) and the newer Custom Avatar (ZIP with config.xml). Covers the end-to-end process from item creation to rendered animation on the web page.
+Two avatar item types share one server base class and one client rendering pipeline (Avatar.ts, AnimationsXml.ts, Animation Proxy):
 
-## Overview
+- **Upload Avatar** (original) - Upload individual animation files one at a time.
+  The server generates config.xml.
+  One animation per type.
+- **Custom Avatar** (newer) - Upload a ZIP containing a pre-built config.xml and all animation files.
+  Multiple animations per type with custom probabilities.
 
-There are two avatar item types that share a common base class:
-
-- **Upload Avatar** - Upload individual animation files one at a time. The server generates config.xml automatically. Supports one animation per type.
-- **Custom Avatar** - Upload a ZIP containing a pre-built config.xml and all animation files. Supports multiple animations per type with custom probabilities.
-
-Both items use the same client-side rendering pipeline (Avatar.ts, AnimationsXml.ts, Animation Proxy).
+Scope: item creation to rendered animation on the web page.
 
 ## Phase 1: Item Definition
 
@@ -231,18 +230,17 @@ Four independent states with priority (highest first):
 
 **File:** `github-n3qExt/.../contentscript/Avatar.ts` (line 447-480)
 
-The algorithm for choosing among multiple animations of the same group:
-
 1. **Collect** all sequences where `sequence.group === requestedGroup`
 2. **Sum weights** (`nWeightSum`) from all matching sequences' `probability` values
 3. **Random number** in range `[0, nWeightSum)` via `Math.random() * nWeightSum`
-4. **Iterate** through collected animations, accumulating weights - select the animation where the cumulative sum first exceeds the random number
+4. **Iterate** through collected animations,
+   accumulating weights - select the animation where the cumulative sum first exceeds the random number
 
-This is a standard weighted random selection. Each animation's chance of being selected equals `probability / totalProbabilitySum`.
+Selection chance per animation: `probability / totalProbabilitySum`.
 
-#### Example: Multiple Idle Animations (business01_f)
+#### Example: Five Idle Variants (business01_f, `avatars/gif/002/`)
 
-The classic GIF avatars in `avatars/gif/002/` demonstrate this with multiple idle variants:
+Classic GIF avatar with weighted idle variants:
 
 ```xml
 <sequence group='idle' name='idle'   probability='1000' ...><animation src='idle.gif'/></sequence>
@@ -261,20 +259,21 @@ The classic GIF avatars in `avatars/gif/002/` demonstrate this with multiple idl
 | idle-4 | 1 | 0.09% |
 | **Total** | **1058** | **100%** |
 
-The main idle animation plays ~95% of the time. Rare variants (e.g., scratching, yawning) appear only occasionally, making the avatar feel more alive and less robotic.
+Rare variants (scratching, yawning) keep the avatar from looking mechanical.
+Chat animations use the same pattern (`chat` at 1000 + `chat-1` at 100).
 
-The same pattern applies to chat animations (e.g., `chat` at 1000 + `chat-1` at 100).
+#### Upload Avatar: One Sequence per Group
 
-#### Current State: Upload Avatar
-
-The Upload Avatar item currently only supports **one animation per type** - there is no UI to upload multiple variants for the same group. The generated config.xml therefore always has exactly one sequence per group, making the probability value irrelevant (always 100% selection).
+Upload Avatar supports **one animation per type**; the UI cannot upload multiple variants for a group.
+Its generated config.xml has exactly one sequence per group, so `probability` never matters (always 100% selection).
 
 ### Animation Duration and Timing
 
 - `duration` attribute in the XML specifies milliseconds for that animation
 - `AnimationsXml.ts:103` parses it with fallback `-1` (meaning: not set)
 - `Avatar.ts:413-416` applies minimum: if `duration < 100ms`, defaults to `1000ms`
-- For animated formats (GIF, animated WebP), the browser handles frame-by-frame playback internally - `duration` controls when the *next animation selection* happens, not individual frames
+- For animated formats (GIF, animated WebP) the browser plays the frames;
+  `duration` controls when the *next animation selection* happens, not individual frames
 - GIF avatars (legacy) often omit `duration`, relying on the 1s fallback
 - WebP avatars (current standard) always specify explicit `duration` values
 
@@ -295,7 +294,7 @@ The Upload Avatar item currently only supports **one animation per type** - ther
 - CSS transition on `left` property: `transition: left {duration}s linear`
 - Duration calculated: `Math.abs(distancePixels) / speedPixelPerSec`
 
-## Complete Data Flow Diagram
+## Data Flow: Backpack Item to Rendered Avatar
 
 ```
 [Empty UploadAvatar Item in Backpack]
@@ -341,7 +340,7 @@ The Upload Avatar item currently only supports **one animation per type** - ther
 
 ## config.xml Parameter Reference
 
-The config.xml uses the namespace `http://schema.bluehands.de/character-config`.
+Namespace: `http://schema.bluehands.de/character-config`.
 
 ### `<param>` Elements
 
@@ -404,9 +403,10 @@ ItemFrameModel                    (base for all item frame pages)
 
 ## Custom Avatar Item
 
-### Overview
+### ZIP with config.xml and Animations
 
-The Custom Avatar item accepts a ZIP file containing a config.xml and all referenced animation files. Unlike Upload Avatar, it supports:
+Custom Avatar accepts a ZIP containing a config.xml and all referenced animation files.
+Unlike Upload Avatar, it supports:
 - **Multiple animations per group** with different probabilities (e.g., 7 idle variants)
 - **Custom config.xml** with all parameters pre-configured
 - **Still image** via `<param name='image'>` for preview display
@@ -416,7 +416,8 @@ The Custom Avatar item accepts a ZIP file containing a config.xml and all refere
 
 **File:** `Items/n3q.Items/Templates/Standard.cs`
 
-Same aspects as Upload Avatar: `AvatarAspect`, `ActivatableAspect`, `IframeAspect`. IframeUrl points to `ItemFrame/CustomAvatar`.
+Same aspects as Upload Avatar: `AvatarAspect`, `ActivatableAspect`, `IframeAspect`.
+IframeUrl points to `ItemFrame/CustomAvatar`.
 
 ### ZIP Structure
 
@@ -459,7 +460,8 @@ avatar.zip
 **File:** `Items/n3q.WebIt/Pages/ItemFrame/CustomAvatar.cshtml.cs`
 
 #### Phase 1: ExtractAndValidate()
-Parses ZIP without side effects. Returns `ValidatedZipContent` or throws `ValidationException`:
+No side effects.
+Returns `ValidatedZipContent` or throws `ValidationException`:
 1. Find `config.xml` in ZIP
 2. Parse XML, extract all `<param>` elements
 3. If `<param name='image'>` references a file, read and validate it from ZIP
