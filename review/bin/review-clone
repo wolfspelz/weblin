@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# review-clone — provision an isolated, disposable clone of one of the two weblin code repos
+# for ONE review run, so several reviews (e.g. the same PR under different models) can run in
+# parallel without fighting over a single working tree, FETCH_HEAD, or index lock.
+#
+# The hardlink base is the code repo checked out next to this workspace in the weblin root:
+#   C:/Heiner/weblin/github-n3qExt    (alias: ext)
+#   C:/Heiner/weblin/github-nine3q    (alias: server)
+# Those checkouts are the developer's own. This script only FETCHES into them (never checks
+# out, merges or fast-forwards), so the developer's branch and working tree are untouched.
+# The review itself never runs in them either: it runs in the clone under work/.
+#
+# Usage:
+#   bin/review-clone <repo> <slug>     # create work/<slug>, print its absolute path (for $WORK)
+#   bin/review-clone --rm <slug>       # remove work/<slug> when the review is done
+#   bin/review-clone --list            # list live clones under work/
+#   bin/review-clone --sync            # just fetch both code repos, then exit
+#
+# <repo> is ext | server (or the directory name github-n3qExt | github-nine3q).
+#
+# <slug> names the run and MUST match the report — use the report's file name minus its
+# leading timestamp and the .md extension: <repo>-<ref>-<word>-<suffix>-<model>, where <ref>
+# is PR-<n> or the branch name with '/' replaced by '-', <word> is one lowercase word
+# characterizing the change (e.g. badgetool). So a clone and its report share one identity
+# (report 261023-1430-ext-PR-12-badgetool-all-opus.md ↔ clone work/ext-PR-12-badgetool-all-opus).
+# Examples:
+#   bin/review-clone ext ext-PR-12-badgetool-all-opus
+#   bin/review-clone server server-feature-aw-badgetool-all-fable   # branch feature/aw
+# The trailing <model> segment is what lets two same-change runs coexist.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # this workspace (weblin/review)
+WEBLIN="$(cd "$ROOT/.." && pwd)"                            # weblin root holding the code repos
+WORKDIR="$ROOT/work"                                        # per-run disposable clones
+
+die() { echo "review-clone: $*" >&2; exit 1; }
+warn() { echo "review-clone: $*" >&2; }
+
+valid_slug() {
+  # letters, digits, dot, dash, underscore only — no slashes / traversal
+  [[ "$1" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid slug '$1' (allowed: A-Z a-z 0-9 . _ -)"
+}
+
+repo_dir() {
+  case "$1" in
+    ext|github-n3qExt)     echo "$WEBLIN/github-n3qExt" ;;
+    server|github-nine3q)  echo "$WEBLIN/github-nine3q" ;;
+    *) die "unknown repo '$1' (use ext | server)" ;;
+  esac
+}
+
+# Fetch both code repos so each run's clone hardlinks current objects instead of re-fetching
+# history the machine already has. Fetch only — the developer's checkout is never moved.
+sync_targets() {
+  local repo
+  for repo in "$WEBLIN/github-n3qExt" "$WEBLIN/github-nine3q"; do
+    [[ -d "$repo/.git" ]] || die "no git repo at $repo"
+    # A failed fetch means no network/auth — the review's own ref fetch would fail too,
+    # so stop here rather than review against a silently stale base.
+    git -C "$repo" fetch --quiet --prune origin \
+      || die "$(basename "$repo"): fetch failed — check network/SSH auth before reviewing"
+  done
+}
+
+case "${1:-}" in
+  --list)
+    [[ -d "$WORKDIR" ]] || { echo "(no work/ dir yet)"; exit 0; }
+    find "$WORKDIR" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
+    ;;
+
+  --sync)
+    sync_targets
+    for repo in "$WEBLIN/github-n3qExt" "$WEBLIN/github-nine3q"; do
+      echo "$(basename "$repo") origin/develop @ $(git -C "$repo" rev-parse --short origin/develop)"
+    done
+    ;;
+
+  --rm)
+    slug="${2:?usage: review-clone --rm <slug>}"; valid_slug "$slug"
+    dir="$WORKDIR/$slug"
+    [[ -d "$dir" ]] || die "no such clone: work/$slug"
+    # Standalone clone — everything (incl. any .wt/ worktrees) lives under $dir, so a
+    # plain recursive remove is enough; nothing points back into the code repos.
+    rm -rf "$dir"
+    echo "removed work/$slug"
+    ;;
+
+  ""|-h|--help)
+    sed -n '2,/^set -euo/{/^set -euo/!s/^# \{0,1\}//p}' "$0"
+    ;;
+
+  --*)
+    die "unknown option '$1' (see --help)"
+    ;;
+
+  *)
+    SRC="$(repo_dir "$1")"
+    slug="${2:?usage: review-clone <repo> <slug>}"; valid_slug "$slug"
+    [[ -d "$SRC/.git" ]] || die "no git repo at $SRC"
+    dir="$WORKDIR/$slug"
+    [[ -e "$dir" ]] && die "work/$slug already exists — pick a unique slug or --rm it first"
+
+    remote_url="$(git -C "$SRC" remote get-url origin)" \
+      || die "$(basename "$SRC") has no 'origin' remote to inherit"
+
+    sync_targets   # always start a review from current objects/refs
+
+    mkdir -p "$WORKDIR"
+    # --local hardlinks the repo's objects (no full copy); --no-checkout because the
+    # runbook checks out the reviewed head itself. The clone's origin initially points at
+    # the local path, so re-point it at GitHub before any PR-ref fetch.
+    git clone --quiet --local --no-checkout "$SRC" "$dir"
+    git -C "$dir" remote set-url origin "$remote_url"
+    git -C "$dir" fetch --quiet origin develop   # refresh develop; surfaces auth errors early
+
+    echo "$dir"
+    ;;
+esac
