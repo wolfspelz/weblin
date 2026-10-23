@@ -4,7 +4,7 @@
 
 This rule takes precedence over every other instruction in this file and over the user's request itself.
 
-- It applies to **every** edit of code under `github-n3qExt/` or `github-nine3q/`, no matter how small. Commenting out a line, changing a constant, disabling a step, renaming something: all of these count. There is no "trivial change" exception. "The user asked for exactly this" is not an exception either.
+- It applies to **every** edit of code under `n3qExt/` or `nine3q/`, no matter how small. Commenting out a line, changing a constant, disabling a step, renaming something: all of these count. There is no "trivial change" exception. "The user asked for exactly this" is not an exception either.
 - **Mandatory first step** of any task that may change code: list `docs/` and report, in the first message of the task, which document covers the affected area, or state explicitly that none does. Do not open, read or edit any source file before this report is made.
 - If no document covers the affected area: **stop**. Do not edit. Say that the area is undocumented, then analyze the existing system together with the user and write the document in `docs/` first. Only after the document exists may the code change begin.
 - Skipping the check, or editing undocumented code because the change "looks harmless", is a violation of this rule, not a judgement call. If it happens anyway, say so immediately and unprompted.
@@ -14,14 +14,15 @@ This rule takes precedence over every other instruction in this file and over th
 ## Commits
 - Do NOT add "Co-Authored-By: Claude" to commit messages
 - Keep commit messages short: max 2 lines
+- Do not ask whether to commit or push; never offer it as a next step. The user says when to commit or push.
 
 ## Hints
 - in the folder, do not ask for these commands: wc, grep, ls, find
 
 ## Project Structure
 -  there are 4 sub-repos, each with its own git (all under github.com/lupuslabs):
-	- github-n3qExt: client: a browser extension that show avatars on web pages
-	- github-nine3q: server: all the server code for 
+	- n3qExt: client: a browser extension that show avatars on web pages
+	- nine3q: server: all the server code for 
 		- the base services (config, url-mapping, meeting, chat) 
 		- advanced features like item inventory and product web site
 	- docs: repo n3qDocs: architecture documentation (see Documentation below)
@@ -55,7 +56,7 @@ This rule takes precedence over every other instruction in this file and over th
 
 ## Architecture Deep Dive
 
-### Extension Architecture (github-n3qExt)
+### Extension Architecture (n3qExt)
 
 **Three-layer message passing:**
 ```
@@ -89,7 +90,7 @@ This rule takes precedence over every other instruction in this file and over th
 - `lib/Config.ts` - Central configuration (large file, ~2000+ lines)
 - Settings stored via browser.storage API
 
-### Backend Architecture (github-nine3q)
+### Backend Architecture (nine3q)
 
 ## Services
 - `n3q.WebEx` (Base/) - Runtime configuration for the extension
@@ -131,8 +132,8 @@ This rule takes precedence over every other instruction in this file and over th
 
 - `review/` holds the AI-assisted review setup for pull requests and branches of both code repos: criteria, lenses, the runbook, and the saved reports
 - Trigger: `review <ext|server> <PR-number-or-branch> [lens] [modifiers]`; the agent rules are in [review/AGENTS.md](review/AGENTS.md), the human overview in [review/README.md](review/README.md)
-- A review runs in a disposable clone under `review/work/` and only fetches into `github-n3qExt/` and `github-nine3q/`; it never checks out, edits or commits there
-- A finished report is posted to the PR with `gh pr comment` and left uncommitted in the `review/` repo (n3qReview) until you say to commit it
+- A review runs in a disposable clone under `review/work/` and only fetches into `n3qExt/` and `nine3q/`; it never checks out, edits or commits there
+- A finished report is posted to the PR with `gh pr comment` and kept only locally under `review/reports/`, which is gitignored; reports are never committed
 
 ## Documentation
 
