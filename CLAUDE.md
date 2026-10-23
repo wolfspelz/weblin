@@ -132,7 +132,7 @@ This rule takes precedence over every other instruction in this file and over th
 - `review/` holds the AI-assisted review setup for pull requests and branches of both code repos: criteria, lenses, the runbook, and the saved reports
 - Trigger: `review <ext|server> <PR-number-or-branch> [lens] [modifiers]`; the agent rules are in [review/AGENTS.md](review/AGENTS.md), the human overview in [review/README.md](review/README.md)
 - A review runs in a disposable clone under `review/work/` and only fetches into `github-n3qExt/` and `github-nine3q/`; it never checks out, edits or commits there
-- A finished report is posted to the PR with `gh pr comment` and left uncommitted in this root repository until you say to commit it
+- A finished report is posted to the PR with `gh pr comment` and left uncommitted in the `review/` repo (n3qReview) until you say to commit it
 
 ## Documentation
 
