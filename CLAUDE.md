@@ -142,8 +142,8 @@ This rule takes precedence over every other instruction in this file and over th
 - The architecture gate for code changes is defined at the top of this file under "Hard Rule: No Undocumented Area Is Edited"
 
 ### Available Documentation
-- [Upload Avatar Process](docs/260324-upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
-- [Vidconf Architecture](docs/260418-vidconf-architecture.md) - Jitsi integration, public/private vidconf flows, URL config chain, window sizes
-- [Backpack Item Rendering](docs/260530-backpack-item-rendering.md) - How the extension renders inventory items in the Backpack window, visual state layers, filter groups, WebSocket updates
-- [GUI Styling and Themes](docs/260530-gui-styling-and-themes.md) - Shadow-DOM isolation, design tokens, theme items injecting overlay CSS
+- [Upload Avatar Process](docs/architecture/260324-upload-avatar-process.md) - End-to-end flow from empty Upload Avatar item to rendered animation
+- [Vidconf Architecture](docs/architecture/260418-vidconf-architecture.md) - Jitsi integration, public/private vidconf flows, URL config chain, window sizes
+- [Backpack Item Rendering](docs/architecture/260530-backpack-item-rendering.md) - How the extension renders inventory items in the Backpack window, visual state layers, filter groups, WebSocket updates
+- [GUI Styling and Themes](docs/architecture/260530-gui-styling-and-themes.md) - Shadow-DOM isolation, design tokens, theme items injecting overlay CSS
 
