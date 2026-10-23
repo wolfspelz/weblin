@@ -12,4 +12,5 @@ Intended scope (to be developed):
 - Injection surfaces (commands, queries, deserialization).
 - Safe defaults; failure modes that fail closed, not open.
 
-Flesh this out before first use; removing the `planned` status line makes the [default review](README.md) run this lens automatically.
+Complete this file before first use;
+removing the `planned` status line makes the [default review](README.md) run this lens automatically.

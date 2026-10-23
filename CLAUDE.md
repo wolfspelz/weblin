@@ -125,25 +125,12 @@ This rule takes precedence over every other instruction in this file and over th
 5. Grain updates state, persists to storage
 6. Response flows back through chain & item updates via websocket
 
-### Key Entry Points for Modifications
-
-| Task | Look Here |
-|------|-----------|
-| Add UI window | `contentscript/*Window.ts` |
-| New chat command | `ChatConsole.ts` |
-| Avatar behavior | `Avatar.ts`, `Entity.ts` |
-| Background API call | `background/` + relevant manager |
-| New grain | `Items/n3q.Grains/` |
-| Web API endpoint | `Base/n3q.WebEx/Controllers/` or `Items/n3q.WebIt/` |
-| Configuration | `lib/Config.ts` (extension), `appsettings.json` (server) |
-| Item properties | `lib/ItemProperties.ts` |
-
 ## Code Review Workspace
 
 - `review/` holds the AI-assisted review setup for pull requests and branches of both code repos: criteria, lenses, the runbook, and the saved reports
 - Trigger: `review <ext|server> <PR-number-or-branch> [lens] [modifiers]`; the agent rules are in [review/AGENTS.md](review/AGENTS.md), the human overview in [review/README.md](review/README.md)
 - A review runs in a disposable clone under `review/work/` and only fetches into `github-n3qExt/` and `github-nine3q/`; it never checks out, edits or commits there
-- Reports are committed to this root repository and posted to the PR with `gh pr comment`
+- A finished report is posted to the PR with `gh pr comment` and left uncommitted in this root repository until you say to commit it
 
 ## Documentation
 
