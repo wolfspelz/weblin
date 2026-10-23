@@ -19,11 +19,13 @@ This rule takes precedence over every other instruction in this file and over th
 - in the folder, do not ask for these commands: wc, grep, ls, find
 
 ## Project Structure
--  there are 2 projects:
+-  there are 4 sub-repos, each with its own git (all under github.com/lupuslabs):
 	- github-n3qExt: client: a browser extension that show avatars on web pages
 	- github-nine3q: server: all the server code for 
 		- the base services (config, url-mapping, meeting, chat) 
 		- advanced features like item inventory and product web site
+	- docs: repo n3qDocs: architecture documentation (see Documentation below)
+	- review: repo n3qReview: AI-assisted code review workspace (see Code Review Workspace below)
 
 ## Running
 - The extension is compiled by "npm run watch" and executed by reloading the browser extension in Chrome
