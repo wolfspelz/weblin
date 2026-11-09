@@ -36,6 +36,8 @@ This rule takes precedence over every other instruction in this file and over th
 	- n3q.sln for the Orleans silo
 	- Web.ln for the 2 web projects
 	- The Silo solution needs azurite to be running
+	- Storage: Azure Table Storage holds grain state, item state and the silo log; in development this is azurite (UseDevelopmentStorage=true)
+	- Clustering: production silos cluster via Redis (redis.n3q-prod:6379); development uses localhost clustering (Redis optional via Cluster.DevelopmentUseRedisClustering)
 	- tell me to run/compile/retart the projects in MS Visual Studio
 	- ompile and run only for compileability and for unit testing
 
@@ -93,9 +95,15 @@ This rule takes precedence over every other instruction in this file and over th
 ### Backend Architecture (nine3q)
 
 ## Services
-- `n3q.WebEx` (Base/) - Runtime configuration for the extension
-- `n3q.WebIt` (Items/) - Project web site, item management web service, item GUI iframes, WebSocket for real-time item updates
-- `n3q.Silo` () - Orleans Silo: distributed computing for stateful grains
+- `n3q.WebEx` (Base/) - Runtime configuration for the extension (port 80)
+- `n3q.WebIt` (Items/) - Project web site, item management web service, item GUI iframes, WebSocket for real-time item updates (port 80)
+- `n3q.Silo` (Items/) - Orleans Silo: distributed computing for stateful grains (ports 11111 silo-to-silo, 30000 client gateway)
+
+**Deployment (nine3q/Deployment/):**
+- `docker/` - Dockerfiles for silo, webit, webex, Redis and the prosody XMPP server
+- `k8s/` - Kubernetes manifests (deployments, ingresses, Redis, secrets) for namespace n3q-prod
+- `ecs/` - AWS ECS task definition for webex
+- `buildAll.sh` - builds and pushes images, then rolls the k8s deployments
 
 **Orleans Virtual Actor Model:**
 ```
